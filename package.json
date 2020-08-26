@@ -1,0 +1,28 @@
+{
+  "name": "source-code-learning",
+  "version": "0.1.0",
+  "description": "",
+  "main": "test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/duhongjun/source-learning.git"
+  },
+  "keywords": [],
+  "author": "duhongjun <13651236533@163.com> (https://github.com/duhongjun)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/duhongjun/source-learning/issues"
+  },
+  "homepage": "https://github.com/duhongjun/source-learning#readme",
+  "devDependencies": {
+    "cz-conventional-changelog": "^2.1.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
+}

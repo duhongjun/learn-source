@@ -1,5 +1,4 @@
-import verifySubselectors from './verifySubselectors'
-
+// 不带缓存的 selector
 export function impureFinalPropsSelectorFactory(
   mapStateToProps,
   mapDispatchToProps,
@@ -7,6 +6,7 @@ export function impureFinalPropsSelectorFactory(
   dispatch
 ) {
   return function impureFinalPropsSelector(state, ownProps) {
+    // 合并三种props
     return mergeProps(
       mapStateToProps(state, ownProps),
       mapDispatchToProps(dispatch, ownProps),
@@ -15,6 +15,7 @@ export function impureFinalPropsSelectorFactory(
   }
 }
 
+// 带缓存的selector
 export function pureFinalPropsSelectorFactory(
   mapStateToProps,
   mapDispatchToProps,
@@ -22,6 +23,7 @@ export function pureFinalPropsSelectorFactory(
   dispatch,
   { areStatesEqual, areOwnPropsEqual, areStatePropsEqual }
 ) {
+  // 是否执行过的标识
   let hasRunAtLeastOnce = false
   let state
   let ownProps
@@ -29,6 +31,7 @@ export function pureFinalPropsSelectorFactory(
   let dispatchProps
   let mergedProps
 
+  // 第一次执行时调用, 调用mapStateToProps, mapDispatchToProps, mergeProps, 并赋值
   function handleFirstCall(firstState, firstOwnProps) {
     state = firstState
     ownProps = firstOwnProps
@@ -38,39 +41,10 @@ export function pureFinalPropsSelectorFactory(
     hasRunAtLeastOnce = true
     return mergedProps
   }
-
-  function handleNewPropsAndNewState() {
-    stateProps = mapStateToProps(state, ownProps)
-
-    if (mapDispatchToProps.dependsOnOwnProps)
-      dispatchProps = mapDispatchToProps(dispatch, ownProps)
-
-    mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
-    return mergedProps
-  }
-
-  function handleNewProps() {
-    if (mapStateToProps.dependsOnOwnProps)
-      stateProps = mapStateToProps(state, ownProps)
-
-    if (mapDispatchToProps.dependsOnOwnProps)
-      dispatchProps = mapDispatchToProps(dispatch, ownProps)
-
-    mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
-    return mergedProps
-  }
-
-  function handleNewState() {
-    const nextStateProps = mapStateToProps(state, ownProps)
-    const statePropsChanged = !areStatePropsEqual(nextStateProps, stateProps)
-    stateProps = nextStateProps
-
-    if (statePropsChanged)
-      mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
-
-    return mergedProps
-  }
-
+  /**
+      后续调用执行的, 即调用次数大于 1 后, 需要再内部判断 state 和 store 是否发生变化
+      根据变化的不同情况调用不同的方法. 如果没有变化, 直接返回之前的mergedProps, 即合并后完整的props
+   */
   function handleSubsequentCalls(nextState, nextOwnProps) {
     const propsChanged = !areOwnPropsEqual(nextOwnProps, ownProps)
     const stateChanged = !areStatesEqual(nextState, state)
@@ -83,20 +57,51 @@ export function pureFinalPropsSelectorFactory(
     return mergedProps
   }
 
+  // 后续调用时, props 和 store的state都变化时调用
+  function handleNewPropsAndNewState() {
+    stateProps = mapStateToProps(state, ownProps)
+
+    if (mapDispatchToProps.dependsOnOwnProps)
+      dispatchProps = mapDispatchToProps(dispatch, ownProps)
+
+    mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
+    return mergedProps
+  }
+  // 后续调用时, props 变化时调用
+  function handleNewProps() {
+    if (mapStateToProps.dependsOnOwnProps)
+      stateProps = mapStateToProps(state, ownProps)
+
+    if (mapDispatchToProps.dependsOnOwnProps)
+      dispatchProps = mapDispatchToProps(dispatch, ownProps)
+
+    mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
+    return mergedProps
+  }
+  // 后续调用时, state 变化时调用
+  function handleNewState() {
+    const nextStateProps = mapStateToProps(state, ownProps)
+    const statePropsChanged = !areStatePropsEqual(nextStateProps, stateProps)
+    stateProps = nextStateProps
+
+    if (statePropsChanged)
+      mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
+
+    return mergedProps
+  }
+
   return function pureFinalPropsSelector(nextState, nextOwnProps) {
+    // 最终的selectorFactory, 区分首次和后续调用, 后续调用需要对比props和state是否变化
     return hasRunAtLeastOnce
       ? handleSubsequentCalls(nextState, nextOwnProps)
       : handleFirstCall(nextState, nextOwnProps)
   }
 }
 
-// TODO: Add more comments
-
-// If pure is true, the selector returned by selectorFactory will memoize its results,
-// allowing connectAdvanced's shouldComponentUpdate to return false if final
-// props have not changed. If false, the selector will always return a new
-// object and shouldComponentUpdate will always return true.
-
+// 如果 pure 为 true, selectorFactory 返回的 selector 会缓存它的结果,  
+// 当最终的 props 没有变化时, 允许 connectAdvanced 的 shouldComponentUpdate 返回 false
+// 
+// 如果 pure 为 false, selector 总是返回一个新的对象, shouldComponentUpdate 也就总会返回true
 export default function finalPropsSelectorFactory(
   dispatch,
   { initMapStateToProps, initMapDispatchToProps, initMergeProps, ...options }
@@ -104,16 +109,7 @@ export default function finalPropsSelectorFactory(
   const mapStateToProps = initMapStateToProps(dispatch, options)
   const mapDispatchToProps = initMapDispatchToProps(dispatch, options)
   const mergeProps = initMergeProps(dispatch, options)
-
-  if (process.env.NODE_ENV !== 'production') {
-    verifySubselectors(
-      mapStateToProps,
-      mapDispatchToProps,
-      mergeProps,
-      options.displayName
-    )
-  }
-
+  // 根据pure的值 选择对应的 selectorFactory
   const selectorFactory = options.pure
     ? pureFinalPropsSelectorFactory
     : impureFinalPropsSelectorFactory
